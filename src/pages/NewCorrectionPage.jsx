@@ -7,8 +7,8 @@ import ScoreDisplay from '../components/ScoreDisplay';
 import RemedialExercises from '../components/RemedialExercises';
 import PdfExport from '../components/PdfExport';
 import { uploadToDrive, isDriveUploadAvailable } from '../services/driveService';
-import { readSheetData, getLatestEntry } from '../services/sheetsService';
-import { analyzeText, compareWithBarem } from '../services/geminiService';
+import { getLatestEntry } from '../services/sheetsService';
+import { analyzeText, analyzeImage, compareWithBarem, compareImageWithBarem } from '../services/geminiService';
 import { addCorrection, addBarem, getBarems } from '../services/firestoreService';
 
 export default function NewCorrectionPage() {
@@ -16,8 +16,9 @@ export default function NewCorrectionPage() {
     const [step, setStep] = useState(1);
     const [file, setFile] = useState(null);
     const [uploading, setUploading] = useState(false);
-    const [mode, setMode] = useState(null); // 'test' or 'caiet'
+    const [mode, setMode] = useState(null);
     const [processing, setProcessing] = useState(false);
+    const [processingMessage, setProcessingMessage] = useState('');
     const [ocrData, setOcrData] = useState(null);
     const [errors, setErrors] = useState([]);
     const [baremResult, setBaremResult] = useState(null);
@@ -50,7 +51,6 @@ export default function NewCorrectionPage() {
     const handleUpload = async () => {
         if (!file) return;
 
-        // If Drive is not available (guest mode), skip upload and go to next step
         if (!driveAvailable) {
             setStep(2);
             return;
@@ -63,7 +63,6 @@ export default function NewCorrectionPage() {
         } catch (error) {
             console.error('Eroare upload:', error);
             if (error.message === 'DRIVE_NO_TOKEN') {
-                // Proceed without upload
                 setStep(2);
             } else {
                 alert('Eroare la încărcare: ' + error.message);
@@ -83,7 +82,7 @@ export default function NewCorrectionPage() {
         setStep(3);
     };
 
-    // Step 3: Process
+    // Step 3: Process — Test cu barem
     const handleBaremReady = async (baremData) => {
         setProcessing(true);
         try {
@@ -96,27 +95,39 @@ export default function NewCorrectionPage() {
                 });
             }
 
-            // Get latest OCR data from Sheets
+            let result;
             let ocrText = '';
-            try {
-                const latest = await getLatestEntry();
-                if (latest) {
-                    setOcrData(latest);
-                    ocrText = latest.textOcr || '';
+
+            // Dacă avem imagine, analizăm direct cu Gemini Vision
+            if (file && file.type?.startsWith('image/')) {
+                setProcessingMessage('Se analizează imaginea cu Gemini Vision...');
+                result = await compareImageWithBarem(file, baremData.items);
+                ocrText = result.textExtras || '';
+                setOcrData({ textOcr: ocrText });
+            } else {
+                // Fallback: citim din Sheets (date procesate de n8n)
+                setProcessingMessage('Se citesc datele din Google Sheets...');
+                try {
+                    const latest = await getLatestEntry();
+                    if (latest) {
+                        setOcrData(latest);
+                        ocrText = latest.textOcr || '';
+                    }
+                } catch (e) {
+                    console.log('Nu s-a putut citi din Sheets:', e);
                 }
-            } catch (e) {
-                console.log('Nu s-a putut citi din Sheets:', e);
+
+                if (!ocrText) {
+                    ocrText = 'Nu s-a putut extrage textul OCR. Verificați Google Sheets.';
+                }
+
+                setProcessingMessage('Se compară cu baremul folosind Gemini AI...');
+                result = await compareWithBarem(ocrText, baremData.items);
             }
 
-            if (!ocrText) {
-                ocrText = 'Nu s-a putut extrage textul OCR. Verificați Google Sheets.';
-            }
-
-            // Compare with barem using Gemini
-            const result = await compareWithBarem(ocrText, baremData.items);
             setBaremResult(result);
 
-            // Save correction to Firestore
+            // Save correction
             await addCorrection({
                 teacherId: user.uid,
                 studentName: studentName || ocrData?.numeElev || 'Necunoscut',
@@ -132,39 +143,51 @@ export default function NewCorrectionPage() {
             setStep(4);
         } catch (error) {
             console.error('Eroare procesare barem:', error);
-            alert('Eroare la procesarea baremului. Verificați conexiunea.');
+            alert('Eroare la procesarea baremului: ' + error.message);
         } finally {
             setProcessing(false);
+            setProcessingMessage('');
         }
     };
 
+    // Step 3: Process — Caiet liber
     const handleCaietProcess = async () => {
         setProcessing(true);
         try {
-            // Get OCR data from Sheets
             let ocrText = '';
-            let ocrErrors = [];
-            try {
-                const latest = await getLatestEntry();
-                if (latest) {
-                    setOcrData(latest);
-                    ocrText = latest.textOcr || '';
-                    ocrErrors = latest.greseliJson || [];
-                }
-            } catch (e) {
-                console.log('Nu s-a putut citi din Sheets:', e);
-            }
+            let finalErrors = [];
 
-            // If we have errors from n8n/Sheets, use them
-            // If not, analyze with Gemini
-            let finalErrors = ocrErrors;
-            if (ocrText && (!finalErrors || finalErrors.length === 0)) {
-                finalErrors = await analyzeText(ocrText);
+            // Dacă avem imagine, analizăm direct cu Gemini Vision
+            if (file && file.type?.startsWith('image/')) {
+                setProcessingMessage('Se analizează imaginea cu Gemini Vision...');
+                const result = await analyzeImage(file);
+                ocrText = result.textExtras || '';
+                finalErrors = result.greseli || [];
+                setOcrData({ textOcr: ocrText });
+            } else {
+                // Fallback: citim din Sheets
+                setProcessingMessage('Se citesc datele din Google Sheets...');
+                try {
+                    const latest = await getLatestEntry();
+                    if (latest) {
+                        setOcrData(latest);
+                        ocrText = latest.textOcr || '';
+                        finalErrors = latest.greseliJson || [];
+                    }
+                } catch (e) {
+                    console.log('Nu s-a putut citi din Sheets:', e);
+                }
+
+                // Dacă nu avem greșeli din Sheets, analizăm cu Gemini
+                if (ocrText && (!finalErrors || finalErrors.length === 0)) {
+                    setProcessingMessage('Se analizează textul cu Gemini AI...');
+                    finalErrors = await analyzeText(ocrText);
+                }
             }
 
             setErrors(finalErrors);
 
-            // Save correction to Firestore
+            // Save correction
             await addCorrection({
                 teacherId: user.uid,
                 studentName: studentName || ocrData?.numeElev || 'Necunoscut',
@@ -178,9 +201,10 @@ export default function NewCorrectionPage() {
             setStep(4);
         } catch (error) {
             console.error('Eroare procesare caiet:', error);
-            alert('Eroare la procesarea textului. Verificați conexiunea.');
+            alert('Eroare la procesarea textului: ' + error.message);
         } finally {
             setProcessing(false);
+            setProcessingMessage('');
         }
     };
 
@@ -223,12 +247,12 @@ export default function NewCorrectionPage() {
                     {!driveAvailable && (
                         <div style={{
                             padding: 'var(--space-md)',
-                            background: 'var(--info-50)',
-                            border: '1px solid var(--info-200)',
+                            background: 'var(--info-50, #e3f2fd)',
+                            border: '1px solid var(--info-200, #90caf9)',
                             borderRadius: 'var(--radius-md)',
                             marginBottom: 'var(--space-lg)',
                             fontSize: '0.85rem',
-                            color: 'var(--info-800)'
+                            color: 'var(--info-800, #1565c0)'
                         }}>
                             ℹ️ <strong>Mod demo:</strong> Upload-ul automat la Google Drive necesită autentificare cu Google (Firebase).
                             Poți încărca manual documentul în folderul Drive monitorizat de n8n, apoi apasă <strong>„Continuă"</strong> pentru a citi rezultatele din Google Sheets.
@@ -307,7 +331,7 @@ export default function NewCorrectionPage() {
                     {processing && (
                         <div className="loading-container">
                             <div className="spinner"></div>
-                            <p>Se procesează cu Gemini AI...</p>
+                            <p>{processingMessage || 'Se procesează...'}</p>
                         </div>
                     )}
                 </div>
@@ -316,20 +340,37 @@ export default function NewCorrectionPage() {
             {step === 3 && mode === 'caiet' && (
                 <div className="card" style={{ textAlign: 'center' }}>
                     <h2 style={{ marginBottom: 'var(--space-md)' }}>📓 Procesare caiet liber</h2>
-                    <p className="text-muted" style={{ marginBottom: 'var(--space-lg)' }}>
-                        Se va citi textul OCR din Google Sheets (procesat de n8n) și se va analiza cu Gemini AI.
-                    </p>
+
+                    {file ? (
+                        <div style={{ marginBottom: 'var(--space-lg)' }}>
+                            <div style={{
+                                padding: 'var(--space-md)',
+                                background: 'var(--success-50, #e8f5e9)',
+                                border: '1px solid var(--success-200, #a5d6a7)',
+                                borderRadius: 'var(--radius-md)',
+                                fontSize: '0.85rem',
+                                color: 'var(--success-800, #2e7d32)'
+                            }}>
+                                ✅ Imagine încărcată: <strong>{file.name}</strong> — Gemini Vision va analiza direct imaginea
+                            </div>
+                        </div>
+                    ) : (
+                        <p className="text-muted" style={{ marginBottom: 'var(--space-lg)' }}>
+                            Se va citi textul OCR din Google Sheets (procesat de n8n) și se va analiza cu Gemini AI.
+                        </p>
+                    )}
+
                     {processing ? (
                         <div className="loading-container">
                             <div className="spinner"></div>
-                            <p>Se analizează textul cu Gemini AI...</p>
+                            <p>{processingMessage || 'Se analizează...'}</p>
                         </div>
                     ) : (
                         <button className="btn btn-primary btn-lg" onClick={handleCaietProcess}>
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                             </svg>
-                            Analizează textul
+                            {file ? 'Analizează imaginea' : 'Citește din Sheets și analizează'}
                         </button>
                     )}
                 </div>
