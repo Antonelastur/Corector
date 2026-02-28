@@ -3,13 +3,20 @@ import { getGoogleAccessToken } from './authService';
 const FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
 
 /**
+ * Verifică dacă upload-ul la Drive este disponibil
+ */
+export const isDriveUploadAvailable = () => {
+    return Boolean(getGoogleAccessToken());
+};
+
+/**
  * Uploadează un fișier în Google Drive (folderul monitorizat de n8n)
  */
 export const uploadToDrive = async (file) => {
     const accessToken = getGoogleAccessToken();
 
     if (!accessToken) {
-        throw new Error('Nu există token de acces Google. Reconectați-vă.');
+        throw new Error('DRIVE_NO_TOKEN');
     }
 
     const metadata = {

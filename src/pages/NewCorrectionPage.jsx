@@ -6,7 +6,7 @@ import ErrorFeedback from '../components/ErrorFeedback';
 import ScoreDisplay from '../components/ScoreDisplay';
 import RemedialExercises from '../components/RemedialExercises';
 import PdfExport from '../components/PdfExport';
-import { uploadToDrive } from '../services/driveService';
+import { uploadToDrive, isDriveUploadAvailable } from '../services/driveService';
 import { readSheetData, getLatestEntry } from '../services/sheetsService';
 import { analyzeText, compareWithBarem } from '../services/geminiService';
 import { addCorrection, addBarem, getBarems } from '../services/firestoreService';
@@ -24,6 +24,8 @@ export default function NewCorrectionPage() {
     const [savedBarems, setSavedBarems] = useState([]);
     const [studentName, setStudentName] = useState('');
     const [className, setClassName] = useState('');
+
+    const driveAvailable = isDriveUploadAvailable();
 
     useEffect(() => {
         if (user) {
@@ -47,13 +49,25 @@ export default function NewCorrectionPage() {
 
     const handleUpload = async () => {
         if (!file) return;
+
+        // If Drive is not available (guest mode), skip upload and go to next step
+        if (!driveAvailable) {
+            setStep(2);
+            return;
+        }
+
         setUploading(true);
         try {
             await uploadToDrive(file);
             setStep(2);
         } catch (error) {
             console.error('Eroare upload:', error);
-            alert('Eroare la încărcare: ' + error.message);
+            if (error.message === 'DRIVE_NO_TOKEN') {
+                // Proceed without upload
+                setStep(2);
+            } else {
+                alert('Eroare la încărcare: ' + error.message);
+            }
         } finally {
             setUploading(false);
         }
@@ -206,6 +220,21 @@ export default function NewCorrectionPage() {
                 <div className="card">
                     <h2 style={{ marginBottom: 'var(--space-md)' }}>📸 Încarcă documentul</h2>
 
+                    {!driveAvailable && (
+                        <div style={{
+                            padding: 'var(--space-md)',
+                            background: 'var(--info-50)',
+                            border: '1px solid var(--info-200)',
+                            borderRadius: 'var(--radius-md)',
+                            marginBottom: 'var(--space-lg)',
+                            fontSize: '0.85rem',
+                            color: 'var(--info-800)'
+                        }}>
+                            ℹ️ <strong>Mod demo:</strong> Upload-ul automat la Google Drive necesită autentificare cu Google (Firebase).
+                            Poți încărca manual documentul în folderul Drive monitorizat de n8n, apoi apasă <strong>„Continuă"</strong> pentru a citi rezultatele din Google Sheets.
+                        </div>
+                    )}
+
                     <div className="flex gap-lg" style={{ marginBottom: 'var(--space-lg)', flexWrap: 'wrap' }}>
                         <div className="input-group" style={{ flex: 1, minWidth: 200 }}>
                             <label>Numele elevului</label>
@@ -240,7 +269,7 @@ export default function NewCorrectionPage() {
                             onClick={handleUpload}
                             disabled={!file || uploading}
                         >
-                            {uploading ? 'Se încarcă...' : 'Încarcă și continuă'}
+                            {uploading ? 'Se încarcă...' : driveAvailable ? 'Încarcă în Drive și continuă' : 'Continuă →'}
                         </button>
                     </div>
                 </div>
