@@ -64,8 +64,7 @@ ${text}
  * Analizează direct o imagine cu Gemini Vision (fără a depinde de n8n/Sheets)
  */
 export const analyzeImage = async (file) => {
-    const base64 = await fileToBase64(file);
-    const mimeType = file.type || 'image/jpeg';
+    const base64 = await imageToBase64(file);
 
     const prompt = `Ești un profesor exigent de limba română. Analizează FOARTE ATENT textul scris de mână din această imagine.
 
@@ -89,33 +88,24 @@ Returnează un obiect JSON cu:
 Returnează DOAR JSON valid, fără alte explicații.`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inlineData: {
-                                mimeType: mimeType,
-                                data: base64
-                            }
+        const data = await callGeminiAPI({
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: 'image/jpeg',
+                            data: base64
                         }
-                    ]
-                }],
-                generationConfig: {
-                    temperature: 0.2,
-                    maxOutputTokens: 4096
-                }
-            })
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 4096
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`Eroare Gemini Vision API: ${response.status}`);
-        }
-
-        const data = await response.json();
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -133,8 +123,7 @@ Returnează DOAR JSON valid, fără alte explicații.`;
  * Compară direct o imagine cu un barem folosind Gemini Vision
  */
 export const compareImageWithBarem = async (file, barem) => {
-    const base64 = await fileToBase64(file);
-    const mimeType = file.type || 'image/jpeg';
+    const base64 = await imageToBase64(file);
 
     const baremText = barem.map((item, i) =>
         `${i + 1}. ${item.answer} (${item.points} puncte)`
@@ -166,33 +155,24 @@ Returnează un obiect JSON cu:
 Returnează DOAR JSON valid, fără alte explicații.`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                contents: [{
-                    parts: [
-                        { text: prompt },
-                        {
-                            inlineData: {
-                                mimeType: mimeType,
-                                data: base64
-                            }
+        const data = await callGeminiAPI({
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType: 'image/jpeg',
+                            data: base64
                         }
-                    ]
-                }],
-                generationConfig: {
-                    temperature: 0.2,
-                    maxOutputTokens: 4096
-                }
-            })
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.2,
+                maxOutputTokens: 4096
+            }
         });
 
-        if (!response.ok) {
-            throw new Error(`Eroare Gemini API: ${response.status}`);
-        }
-
-        const data = await response.json();
         const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
@@ -325,15 +305,69 @@ Returnează DOAR JSON valid, fără alte explicații.`;
     }
 };
 
-// Helper: convertește fișier în base64
-function fileToBase64(file) {
+// Helper: comprimă și convertește imagine în base64
+async function imageToBase64(file, maxSize = 1600) {
     return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => {
-            const base64 = reader.result.split(',')[1];
+        const img = new Image();
+        const url = URL.createObjectURL(file);
+
+        img.onload = () => {
+            URL.revokeObjectURL(url);
+
+            let { width, height } = img;
+
+            // Redimensionare dacă e prea mare
+            if (width > maxSize || height > maxSize) {
+                const ratio = Math.min(maxSize / width, maxSize / height);
+                width = Math.round(width * ratio);
+                height = Math.round(height * ratio);
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = width;
+            canvas.height = height;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0, width, height);
+
+            // Convertire în JPEG base64 (mai mic ca PNG)
+            const dataUrl = canvas.toDataURL('image/jpeg', 0.8);
+            const base64 = dataUrl.split(',')[1];
             resolve(base64);
         };
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
+
+        img.onerror = () => {
+            URL.revokeObjectURL(url);
+            // Fallback: citim fișierul direct
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        };
+
+        img.src = url;
     });
 }
+
+// Helper: apel Gemini API cu error handling detaliat
+async function callGeminiAPI(body) {
+    const response = await fetch(GEMINI_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    });
+
+    if (!response.ok) {
+        let errorMsg = `Eroare Gemini API: ${response.status}`;
+        try {
+            const errData = await response.json();
+            errorMsg = errData.error?.message || errorMsg;
+            console.error('Gemini API error details:', errData);
+        } catch (e) {
+            // nu putem parsa eroarea
+        }
+        throw new Error(errorMsg);
+    }
+
+    return await response.json();
+}
+
