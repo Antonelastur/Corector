@@ -48,18 +48,22 @@ export const logout = async () => {
 };
 
 export const onAuthChange = (callback) => {
-    // If in guest mode, immediately callback with guest user
+    // If Firebase is configured, always use Firebase Auth (ignore guest_mode flag)
+    if (isFirebaseConfigured && auth) {
+        // Clear any stale guest_mode flag
+        sessionStorage.removeItem('guest_mode');
+        return onAuthStateChanged(auth, callback);
+    }
+
+    // Firebase NOT configured: check for guest mode
     if (sessionStorage.getItem('guest_mode') === 'true') {
         setTimeout(() => callback(GUEST_USER), 0);
         return () => { };
     }
 
-    if (!isFirebaseConfigured) {
-        setTimeout(() => callback(null), 0);
-        return () => { };
-    }
-
-    return onAuthStateChanged(auth, callback);
+    // No Firebase, no guest mode
+    setTimeout(() => callback(null), 0);
+    return () => { };
 };
 
 export const getGoogleAccessToken = () => {
