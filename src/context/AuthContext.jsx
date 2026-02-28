@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect } from 'react';
-import { onAuthChange, loginWithGoogle, logout } from '../services/authService';
+import { onAuthChange, loginWithGoogle, loginAsGuest, logout, isFirebaseConfigured } from '../services/authService';
 
 const AuthContext = createContext(null);
 
@@ -12,19 +12,32 @@ export function AuthProvider({ children }) {
             setUser(user);
             setLoading(false);
         });
-        return unsubscribe;
+        return () => {
+            if (typeof unsubscribe === 'function') unsubscribe();
+        };
     }, []);
 
     const login = async () => {
-        return await loginWithGoogle();
+        const result = await loginWithGoogle();
+        if (!isFirebaseConfigured) {
+            setUser(result);
+        }
+        return result;
+    };
+
+    const guestLogin = () => {
+        const guestUser = loginAsGuest();
+        setUser(guestUser);
+        return guestUser;
     };
 
     const signOut = async () => {
         await logout();
+        setUser(null);
     };
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, signOut }}>
+        <AuthContext.Provider value={{ user, loading, login, guestLogin, signOut, isFirebaseConfigured }}>
             {children}
         </AuthContext.Provider>
     );
