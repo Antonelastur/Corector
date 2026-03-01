@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import ImageUploader from '../components/ImageUploader';
 import BaremEditor from '../components/BaremEditor';
@@ -8,7 +9,7 @@ import RemedialExercises from '../components/RemedialExercises';
 import PdfExport from '../components/PdfExport';
 import { uploadToDrive, isDriveUploadAvailable } from '../services/driveService';
 import { getLatestEntry } from '../services/sheetsService';
-import { analyzeText, analyzeImage, compareWithBarem, compareImageWithBarem } from '../services/geminiService';
+import { analyzeText, analyzeImage, compareWithBarem, compareImageWithBarem, isGeminiConfigured } from '../services/geminiService';
 import { addCorrection, addBarem, getBarems } from '../services/firestoreService';
 
 export default function NewCorrectionPage() {
@@ -238,6 +239,28 @@ export default function NewCorrectionPage() {
             </div>
 
             {renderSteps()}
+
+            {!isGeminiConfigured() && (
+                <div style={{
+                    padding: 'var(--space-md)',
+                    background: 'var(--warning-50, #fff3e0)',
+                    border: '1px solid var(--warning-200, #ffcc80)',
+                    borderRadius: 'var(--radius-md)',
+                    marginBottom: 'var(--space-lg)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 'var(--space-md)',
+                    flexWrap: 'wrap'
+                }}>
+                    <span style={{ fontSize: '1.2rem' }}>⚠️</span>
+                    <span style={{ fontSize: '0.85rem', color: 'var(--warning-900, #e65100)', flex: 1 }}>
+                        <strong>Cheia API Gemini nu este configurată.</strong> Corectarea nu va funcționa fără ea.
+                    </span>
+                    <Link to="/setari" className="btn btn-primary btn-sm">
+                        Mergi la Setări
+                    </Link>
+                </div>
+            )}
 
             {/* Step 1: Upload */}
             {step === 1 && (

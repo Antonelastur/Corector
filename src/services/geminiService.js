@@ -1,5 +1,14 @@
-const GEMINI_API_KEY = import.meta.env.VITE_GEMINI_API_KEY;
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${GEMINI_API_KEY}`;
+// Cheia API se citește din localStorage (introdusă de utilizator în Setări)
+// NU se mai folosește import.meta.env pentru a evita expunerea cheii pe GitHub
+export const getGeminiApiKey = () => localStorage.getItem('gemini_api_key') || '';
+export const setGeminiApiKey = (key) => localStorage.setItem('gemini_api_key', key);
+export const isGeminiConfigured = () => !!getGeminiApiKey();
+
+const getGeminiUrl = () => {
+    const key = getGeminiApiKey();
+    if (!key) throw new Error('Cheia API Gemini nu este configurată. Mergi la Setări pentru a o introduce.');
+    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+};
 
 /**
  * Analizează textul OCR și identifică greșeli (mod Caiet liber)
@@ -30,7 +39,7 @@ ${text}
 """`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(getGeminiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -209,7 +218,7 @@ Exercițiile trebuie să fie potrivite pentru un elev de gimnaziu.
 Returnează DOAR un array JSON valid cu exact 3 obiecte, fără alte explicații.`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(getGeminiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -275,7 +284,7 @@ Returnează un obiect JSON cu:
 Returnează DOAR JSON valid, fără alte explicații.`;
 
     try {
-        const response = await fetch(GEMINI_URL, {
+        const response = await fetch(getGeminiUrl(), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
@@ -350,7 +359,7 @@ async function imageToBase64(file, maxSize = 1600) {
 
 // Helper: apel Gemini API cu error handling detaliat
 async function callGeminiAPI(body) {
-    const response = await fetch(GEMINI_URL, {
+    const response = await fetch(getGeminiUrl(), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body)

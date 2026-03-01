@@ -7,6 +7,7 @@ import DashboardPage from './pages/DashboardPage';
 import NewCorrectionPage from './pages/NewCorrectionPage';
 import StudentHistoryPage from './pages/StudentHistoryPage';
 import StatisticsPage from './pages/StatisticsPage';
+import SettingsPage from './pages/SettingsPage';
 
 function App() {
     return (
@@ -26,6 +27,7 @@ function App() {
                         <Route path="corectare" element={<NewCorrectionPage />} />
                         <Route path="istoric" element={<StudentHistoryPage />} />
                         <Route path="statistici" element={<StatisticsPage />} />
+                        <Route path="setari" element={<SettingsPage />} />
                     </Route>
                 </Routes>
             </Router>
