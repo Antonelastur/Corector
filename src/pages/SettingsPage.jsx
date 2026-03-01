@@ -6,9 +6,11 @@ export default function SettingsPage() {
     const [saved, setSaved] = useState(false);
     const [testing, setTesting] = useState(false);
     const [testResult, setTestResult] = useState(null);
+    const [keyConfigured, setKeyConfigured] = useState(isGeminiConfigured());
 
     const handleSave = () => {
         setGeminiApiKey(apiKey.trim());
+        setKeyConfigured(!!apiKey.trim());
         setSaved(true);
         setTestResult(null);
         setTimeout(() => setSaved(false), 3000);
@@ -38,6 +40,7 @@ export default function SettingsPage() {
                 setTestResult({ ok: true, message: '✅ Cheia API funcționează corect!' });
                 // Salvăm automat dacă funcționează
                 setGeminiApiKey(apiKey.trim());
+                setKeyConfigured(true);
                 setSaved(true);
                 setTimeout(() => setSaved(false), 3000);
             } else {
@@ -62,7 +65,7 @@ export default function SettingsPage() {
             <div className="card" style={{ marginBottom: 'var(--space-xl)' }}>
                 <div className="card-header">
                     <h2>🔑 Cheie API Gemini</h2>
-                    {isGeminiConfigured() && (
+                    {keyConfigured && (
                         <span className="badge badge-success">✓ Configurată</span>
                     )}
                 </div>
@@ -181,8 +184,8 @@ export default function SettingsPage() {
                             <tr>
                                 <td style={{ fontWeight: 600 }}>Gemini API</td>
                                 <td>
-                                    <span className={`badge ${isGeminiConfigured() ? 'badge-success' : 'badge-ortografie'}`}>
-                                        {isGeminiConfigured() ? '✓ Configurat' : '✗ Neconfigurat'}
+                                    <span className={`badge ${keyConfigured ? 'badge-success' : 'badge-ortografie'}`}>
+                                        {keyConfigured ? '✓ Configurat' : '✗ Neconfigurat'}
                                     </span>
                                 </td>
                                 <td className="text-muted">Analiză text + imagine</td>
