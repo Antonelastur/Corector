@@ -7,7 +7,7 @@ export const isGeminiConfigured = () => !!getGeminiApiKey();
 const getGeminiUrl = () => {
     const key = getGeminiApiKey();
     if (!key) throw new Error('Cheia API Gemini nu este configurată. Mergi la Setări pentru a o introduce.');
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${key}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
 };
 
 /**

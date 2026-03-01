@@ -48,17 +48,15 @@ export const logout = async () => {
 };
 
 export const onAuthChange = (callback) => {
-    // If Firebase is configured, always use Firebase Auth (ignore guest_mode flag)
-    if (isFirebaseConfigured && auth) {
-        // Clear any stale guest_mode flag
-        sessionStorage.removeItem('guest_mode');
-        return onAuthStateChanged(auth, callback);
-    }
-
-    // Firebase NOT configured: check for guest mode
+    // Check for guest mode first (works regardless of Firebase config)
     if (sessionStorage.getItem('guest_mode') === 'true') {
         setTimeout(() => callback(GUEST_USER), 0);
         return () => { };
+    }
+
+    // If Firebase is configured, use Firebase Auth
+    if (isFirebaseConfigured && auth) {
+        return onAuthStateChanged(auth, callback);
     }
 
     // No Firebase, no guest mode
