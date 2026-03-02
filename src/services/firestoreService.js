@@ -30,11 +30,11 @@ export const getStudents = async (teacherId) => {
     }
     const q = query(
         collection(db, 'students'),
-        where('teacherId', '==', teacherId),
-        orderBy('name')
+        where('teacherId', '==', teacherId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return docs.sort((a, b) => (a.name || '').localeCompare(b.name || ''));
 };
 
 export const getStudent = async (studentId) => {
@@ -67,11 +67,15 @@ export const getCorrections = async (teacherId) => {
     }
     const q = query(
         collection(db, 'corrections'),
-        where('teacherId', '==', teacherId),
-        orderBy('createdAt', 'desc')
+        where('teacherId', '==', teacherId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return docs.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || new Date(a.date || 0).getTime();
+        const timeB = b.createdAt?.toMillis?.() || new Date(b.date || 0).getTime();
+        return timeB - timeA;
+    });
 };
 
 export const getStudentCorrections = async (studentId) => {
@@ -82,11 +86,15 @@ export const getStudentCorrections = async (studentId) => {
     }
     const q = query(
         collection(db, 'corrections'),
-        where('studentId', '==', studentId),
-        orderBy('createdAt', 'desc')
+        where('studentId', '==', studentId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return docs.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || new Date(a.date || 0).getTime();
+        const timeB = b.createdAt?.toMillis?.() || new Date(b.date || 0).getTime();
+        return timeB - timeA;
+    });
 };
 
 export const getCorrectionById = async (correctionId) => {
@@ -118,11 +126,15 @@ export const getBarems = async (teacherId) => {
     }
     const q = query(
         collection(db, 'barems'),
-        where('teacherId', '==', teacherId),
-        orderBy('createdAt', 'desc')
+        where('teacherId', '==', teacherId)
     );
     const snapshot = await getDocs(q);
-    return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    const docs = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+    return docs.sort((a, b) => {
+        const timeA = a.createdAt?.toMillis?.() || new Date(a.date || 0).getTime();
+        const timeB = b.createdAt?.toMillis?.() || new Date(b.date || 0).getTime();
+        return timeB - timeA;
+    });
 };
 
 export const deleteBarem = async (baremId) => {

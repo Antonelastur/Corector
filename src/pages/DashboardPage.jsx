@@ -16,13 +16,28 @@ export default function DashboardPage() {
 
     const loadDashboardData = async () => {
         try {
-            // Try to load from Sheets
-            let data = [];
-            try {
-                data = await readSheetData();
-            } catch (e) {
-                console.log('Sheets nu este configurat:', e.message);
-            }
+            if (!user?.uid) return;
+
+            let firestoreData = await getCorrections(user.uid);
+
+            // Map to unified format expected by the Dashboard UI
+            const data = firestoreData.map(c => {
+                let punctaj = 0;
+                if (c.mode === 'test') {
+                    punctaj = c.maxScore > 0 ? Math.round((c.score / c.maxScore) * 100) : 0;
+                } else {
+                    const errCount = c.errors?.length || 0;
+                    punctaj = Math.max(10, 100 - errCount * 5);
+                }
+
+                return {
+                    id: c.id,
+                    numeElev: c.studentName || 'Necunoscut',
+                    clasa: c.className || '',
+                    data: c.date ? new Date(c.date).toLocaleDateString('ro-RO') : '',
+                    punctaj: punctaj
+                };
+            });
 
             // Stats
             const today = new Date().toLocaleDateString('ro-RO');
@@ -40,7 +55,7 @@ export default function DashboardPage() {
                 students: uniqueStudents
             });
 
-            setRecentData(data.slice(-5).reverse());
+            setRecentData(data.slice(0, 5)); // It's already sorted desc
         } catch (error) {
             console.error('Eroare încărcare dashboard:', error);
         } finally {

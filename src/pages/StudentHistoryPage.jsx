@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { readSheetData } from '../services/sheetsService';
+import { getCorrections } from '../services/firestoreService';
 import ProgressChart from '../components/ProgressChart';
 import ErrorFeedback from '../components/ErrorFeedback';
 import RemedialExercises from '../components/RemedialExercises';
@@ -22,13 +22,42 @@ export default function StudentHistoryPage() {
 
     const loadData = async () => {
         try {
-            let sheetsData = [];
-            try {
-                sheetsData = await readSheetData();
-            } catch (e) {
-                console.log('Sheets nu este configurat, se folosesc datele demo:', e.message);
-                sheetsData = getDemoData();
+            if (!user?.uid) return;
+
+            let firestoreData = await getCorrections(user.uid);
+
+            if (!firestoreData || firestoreData.length === 0) {
+                // Keep demo data if no corrections yet, so user sees something
+                console.log('Nicio corectare găsită, se folosesc datele demo');
+                const demoData = getDemoData();
+                setData(demoData);
+                setClasses([...new Set(demoData.map(d => d.clasa).filter(Boolean))]);
+                setLoading(false);
+                return;
             }
+
+            // Map to unified format expected by the StudentHistory UI
+            const sheetsData = firestoreData.map(c => {
+                let punctaj = 0;
+                if (c.mode === 'test') {
+                    punctaj = c.maxScore > 0 ? Math.round((c.score / c.maxScore) * 100) : 0;
+                } else {
+                    const errCount = c.errors?.length || 0;
+                    punctaj = Math.max(10, 100 - errCount * 5);
+                }
+
+                return {
+                    id: c.id,
+                    numeElev: c.studentName || 'Necunoscut',
+                    clasa: c.className || '',
+                    data: c.date ? new Date(c.date).toLocaleDateString('ro-RO') : '',
+                    textOcr: c.ocrText || '',
+                    greseliJson: c.mode === 'test'
+                        ? (c.baremResult?.items || []).filter(i => !i.corect).map(i => ({ tip: 'continut', textGresit: i.raspunsElev || '-', textCorect: i.raspunsCorect || '-', explicatie: i.feedback }))
+                        : (c.errors || []),
+                    punctaj: punctaj
+                };
+            });
 
             setData(sheetsData);
 
@@ -206,6 +235,7 @@ export default function StudentHistoryPage() {
                                     <th>Punctaj</th>
                                     <th>Greșeli</th>
                                     <th>Status</th>
+                                    <th style={{ textAlign: 'right' }}>Acțiuni</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -220,6 +250,19 @@ export default function StudentHistoryPage() {
                                             <span className={`badge ${c.punctaj >= 50 ? 'badge-success' : 'badge-ortografie'}`}>
                                                 {c.punctaj >= 50 ? '✓ Promovat' : '✗ Nepromovat'}
                                             </span>
+                                        </td>
+                                        <td style={{ textAlign: 'right' }}>
+                                            <PdfExport
+                                                correctionData={{
+                                                    studentName: student.name,
+                                                    className: student.class,
+                                                    date: c.data,
+                                                    score: c.punctaj,
+                                                    maxScore: 100,
+                                                    errors: c.greseliJson || [],
+                                                    ocrText: c.textOcr
+                                                }}
+                                            />
                                         </td>
                                     </tr>
                                 ))}

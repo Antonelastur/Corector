@@ -2,12 +2,15 @@
 // NU se mai folosește import.meta.env pentru a evita expunerea cheii pe GitHub
 export const getGeminiApiKey = () => localStorage.getItem('gemini_api_key') || '';
 export const setGeminiApiKey = (key) => localStorage.setItem('gemini_api_key', key);
+export const getGeminiModel = () => localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+export const setGeminiModel = (model) => localStorage.setItem('gemini_model', model);
 export const isGeminiConfigured = () => !!getGeminiApiKey();
 
 const getGeminiUrl = () => {
     const key = getGeminiApiKey();
+    const model = getGeminiModel();
     if (!key) throw new Error('Cheia API Gemini nu este configurată. Mergi la Setări pentru a o introduce.');
-    return `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${key}`;
+    return `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${key}`;
 };
 
 /**

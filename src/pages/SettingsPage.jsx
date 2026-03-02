@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { getGeminiApiKey, setGeminiApiKey, isGeminiConfigured } from '../services/geminiService';
+import { getGeminiApiKey, setGeminiApiKey, isGeminiConfigured, setGeminiModel, getGeminiModel } from '../services/geminiService';
 
 export default function SettingsPage() {
     const [apiKey, setApiKey] = useState(getGeminiApiKey());
@@ -26,7 +26,43 @@ export default function SettingsPage() {
         setTestResult(null);
 
         try {
-            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey.trim()}`;
+            // Pasul 1: Obținem lista de modele disponibile pentru această cheie
+            const modelsUrl = `https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey.trim()}`;
+            const modelsResponse = await fetch(modelsUrl);
+
+            if (!modelsResponse.ok) {
+                const errData = await modelsResponse.json().catch(() => null);
+                const errMsg = errData?.error?.message || `Eroare HTTP ${modelsResponse.status}`;
+                setTestResult({ ok: false, message: `❌ Eroare validare cheie: ${errMsg}` });
+                setTesting(false);
+                return;
+            }
+
+            const modelsData = await modelsResponse.json();
+
+            // Filtrăm doar modelele Gemini care suportă generare de text
+            const availableModels = (modelsData.models || [])
+                .filter(m => m.supportedGenerationMethods?.includes('generateContent') && m.name.includes('gemini'))
+                .map(m => m.name.replace('models/', ''));
+
+            if (availableModels.length === 0) {
+                setTestResult({ ok: false, message: `❌ Niciun model Gemini compatibil nu a fost găsit pentru această cheie.` });
+                setTesting(false);
+                return;
+            }
+
+            // Alegem cel mai bun model disponibil
+            let selectedModel = 'gemini-1.5-flash';
+            if (availableModels.includes('gemini-2.5-flash')) selectedModel = 'gemini-2.5-flash';
+            else if (availableModels.includes('gemini-2.0-flash')) selectedModel = 'gemini-2.0-flash';
+            else if (availableModels.includes('gemini-1.5-flash')) selectedModel = 'gemini-1.5-flash';
+            else if (availableModels.includes('gemini-1.5-pro')) selectedModel = 'gemini-1.5-pro';
+            else selectedModel = availableModels[0]; // fallback la primul gasit
+
+            console.log('Model Gemini auto-selectat pentru testare:', selectedModel);
+
+            // Pasul 2: Testăm modelul ales
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/${selectedModel}:generateContent?key=${apiKey.trim()}`;
             const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -37,19 +73,20 @@ export default function SettingsPage() {
             });
 
             if (response.ok) {
-                setTestResult({ ok: true, message: '✅ Cheia API funcționează corect!' });
-                // Salvăm automat dacă funcționează
+                setTestResult({ ok: true, message: `✅ Succes cu modelul: ${selectedModel}` });
+                // Salvăm automat cheia și modelul validat
                 setGeminiApiKey(apiKey.trim());
+                setGeminiModel(selectedModel);
                 setKeyConfigured(true);
                 setSaved(true);
                 setTimeout(() => setSaved(false), 3000);
             } else {
                 const errData = await response.json().catch(() => null);
                 const errMsg = errData?.error?.message || `Eroare HTTP ${response.status}`;
-                setTestResult({ ok: false, message: `❌ ${errMsg}` });
+                setTestResult({ ok: false, message: `❌ Model respins: ${errMsg}` });
             }
         } catch (error) {
-            setTestResult({ ok: false, message: `❌ Eroare de conexiune: ${error.message}` });
+            setTestResult({ ok: false, message: `❌ Eroare de rețea: ${error.message}` });
         } finally {
             setTesting(false);
         }
@@ -188,7 +225,10 @@ export default function SettingsPage() {
                                         {keyConfigured ? '✓ Configurat' : '✗ Neconfigurat'}
                                     </span>
                                 </td>
-                                <td className="text-muted">Analiză text + imagine</td>
+                                <td className="text-muted">
+                                    Analiză text + imagine <br />
+                                    <small style={{ opacity: 0.7 }}>Model: {getGeminiModel()}</small>
+                                </td>
                             </tr>
                             <tr>
                                 <td style={{ fontWeight: 600 }}>Google Sheets</td>
