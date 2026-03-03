@@ -112,7 +112,7 @@ Structura de date așteptată (obiect JSON):
             }],
             generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 2048,
+                maxOutputTokens: 8192,
                 responseMimeType: "application/json"
             }
         });
