@@ -1,5 +1,5 @@
-import jsPDF from 'jspdf';
-import 'jspdf-autotable';
+import { jsPDF } from 'jspdf';
+import autoTable from 'jspdf-autotable';
 
 export default function PdfExport({ correctionData }) {
     const handleExport = () => {
@@ -56,7 +56,7 @@ export default function PdfExport({ correctionData }) {
             doc.text('Greseli identificate', 20, yPos);
             yPos += 5;
 
-            doc.autoTable({
+            autoTable(doc, {
                 startY: yPos,
                 head: [['Tip', 'Text gresit', 'Text corect', 'Explicatie']],
                 body: errors.map(e => [
