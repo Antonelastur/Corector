@@ -80,10 +80,13 @@ export const extractBaremFromFile = async (file) => {
     const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
 
     const prompt = `Ești un profesor cu experiență care extrage baremul dintr-un document (PDF/imagine).
-Analizează cu atenție acest document și extrage toți itemii/întrebările din barem, împreună cu punctajul lor.
-Dacă documentul conține doar un test/lucrare, extrage cerințele ca itemi și caută cu atenție punctajele menționate la finalul sau începutul fiecărei cerințe (pot fi 2, 5, 20 puncte etc.). 
-ALOCĂ 10 PUNCTE DIN OFICIU **DOAR** dacă nu găsești ABSOLUT NICĂIERI menționat un punctaj pentru acel item.
-EXTRAGE ORICE seamănă cu o cerință sau un item evaluabil. În caz că documentul e ilizibil, returnează o listă goală.
+SARCINA TA PRINCIPALĂ: Extrage TOȚI itemii/toate cerințele și ASIGURĂ-TE CĂ EXTRAGI CORECT PUNCTAJUL pentru fiecare.
+
+Instrucțiuni vitale pentru PUNCTAJ:
+1. Caută cu mare atenție numere urmate de „p”, „pct”, „puncte” sau aflate în paranteze la finalul/începutul rândului (ex: "5p", "(20 puncte)").
+2. Dacă vezi un tabel sau o margine în care sunt trecute numere, acelea sunt punctajele.
+3. Dacă un exercițiu mare are subpuncte (a, b, c), extrage punctajul exact pentru fiecare subpunct, nu doar totalul per exercițiu.
+4. Folosește "10" (sau alt default) DOAR DACĂ ești 100% sigur că nu a fost scris niciun punctaj pe toată pagina pentru acel exercițiu.
 
 Structura de date așteptată (obiect JSON):
 {
