@@ -1,5 +1,5 @@
-const SHEETS_ID = import.meta.env.VITE_GOOGLE_SHEETS_ID;
-const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY;
+const SHEETS_ID = import.meta.env.VITE_GOOGLE_SHEETS_ID || '1FwOexyQIYXibzeLG0YI3DZUFEBtKqkak1dJIZUwV6wQ';
+const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY || 'AIzaSyCM-6WSuhGa6dBzqg20VjdtG-lEd-ru0-s';
 
 /**
  * Citește datele din Google Sheets

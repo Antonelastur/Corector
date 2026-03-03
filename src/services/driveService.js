@@ -1,6 +1,6 @@
 import { getGoogleAccessToken } from './authService';
 
-const FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID;
+const FOLDER_ID = import.meta.env.VITE_GOOGLE_DRIVE_FOLDER_ID || '1tntvuPsqJUukip1WPBmg667qCuIMYi9g';
 
 /**
  * Verifică dacă upload-ul la Drive este disponibil
