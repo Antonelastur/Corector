@@ -49,7 +49,8 @@ ${text}
                 contents: [{ parts: [{ text: prompt }] }],
                 generationConfig: {
                     temperature: 0.2,
-                    maxOutputTokens: 4096
+                    maxOutputTokens: 8192,
+                    responseMimeType: "application/json"
                 }
             })
         });
@@ -59,11 +60,16 @@ ${text}
         }
 
         const data = await response.json();
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+        let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
-        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
-        if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+        const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+            try {
+                return JSON.parse(arrayMatch[0]);
+            } catch (e) {
+                console.warn('Eroare parsare analiză text:', e);
+            }
         }
         return [];
     } catch (error) {
@@ -208,15 +214,22 @@ Returnează DOAR JSON valid, fără alte explicații.`;
             }],
             generationConfig: {
                 temperature: 0.2,
-                maxOutputTokens: 4096
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json"
             }
         });
 
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        console.log('Răspuns brut Gemini (Analyze Image):', responseText);
+        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (e) {
+                console.warn("Eroare parsare json (analyzeImage):", e);
+            }
         }
         return { textExtras: '', greseli: [] };
     } catch (error) {
@@ -276,15 +289,23 @@ Returnează DOAR JSON valid, fără alte explicații.`;
             }],
             generationConfig: {
                 temperature: 0.2,
-                maxOutputTokens: 4096
+                maxOutputTokens: 8192,
+                responseMimeType: "application/json"
             }
         });
 
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+        let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+        console.log('Răspuns brut Gemini (Compare Barem):', responseText);
+        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
 
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            try {
+                return JSON.parse(jsonMatch[0]);
+            } catch (e) {
+                console.warn("Eroare JSON (compareBarem):", e);
+            }
         }
         return { textExtras: '', items: [], punctajTotal: 0, punctajMaxim: 0, procentaj: 0 };
     } catch (error) {
