@@ -81,8 +81,8 @@ export const extractBaremFromFile = async (file) => {
 
     const prompt = `Ești un profesor cu experiență care extrage baremul dintr-un document (PDF/imagine).
 Analizează cu atenție acest document și extrage toți itemii/întrebările din barem, împreună cu punctajul lor.
-Dacă documentul conține doar un test/lucrare, extrage cerințele ca itemi și punctajele menționate.
-Dacă nu găsești punctaje, alocă din oficiu (ex: 10 puncte/item).
+Dacă documentul conține doar un test/lucrare, extrage cerințele ca itemi și caută cu atenție punctajele menționate la finalul sau începutul fiecărei cerințe (pot fi 2, 5, 20 puncte etc.). 
+ALOCĂ 10 PUNCTE DIN OFICIU **DOAR** dacă nu găsești ABSOLUT NICĂIERI menționat un punctaj pentru acel item.
 EXTRAGE ORICE seamănă cu o cerință sau un item evaluabil. În caz că documentul e ilizibil, returnează o listă goală.
 
 Structura de date așteptată (obiect JSON):
@@ -90,7 +90,7 @@ Structura de date așteptată (obiect JSON):
   "items": [
     {
       "answer": "Răspunsul corect sau descrierea cerinței (rezumat).",
-      "points": 10
+      "points": 5
     }
   ]
 }`;
