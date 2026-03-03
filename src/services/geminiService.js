@@ -73,12 +73,62 @@ ${text}
 };
 
 /**
- * Analizează direct o imagine cu Gemini Vision (fără a depinde de n8n/Sheets)
+ * Extrage itemii unui barem dintr-un fișier (imagine sau PDF)
+ */
+export const extractBaremFromFile = async (file) => {
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
+
+    const prompt = `Ești un profesor care extrage baremul de corectare dintr-un document.
+Analizează acest document și extrage toți itemii din barem, împreună cu punctajul lor.
+
+Pentru fiecare item din barem returnează un obiect JSON cu:
+- "answer": răspunsul corect sau descrierea cerinței, formulat clar
+- "points": punctajul acordat (ca număr complet, ex: 10, 5, 2.5)
+
+Returnează DOAR un array JSON valid cu toți itemii exacți din document, fără alte explicații.
+Dacă nu găsești itemi, returnează [].`;
+
+    try {
+        const data = await callGeminiAPI({
+            contents: [{
+                parts: [
+                    { text: prompt },
+                    {
+                        inlineData: {
+                            mimeType,
+                            data: base64
+                        }
+                    }
+                ]
+            }],
+            generationConfig: {
+                temperature: 0.1,
+                maxOutputTokens: 2048
+            }
+        });
+
+        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
+        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+
+        if (jsonMatch) {
+            return JSON.parse(jsonMatch[0]);
+        }
+        return [];
+    } catch (error) {
+        console.error('Eroare extragere barem:', error);
+        throw error;
+    }
+};
+
+/**
+ * Analizează direct o imagine sau PDF cu Gemini Vision (fără a depinde de n8n/Sheets)
  */
 export const analyzeImage = async (file) => {
-    const base64 = await imageToBase64(file);
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
 
-    const prompt = `Ești un profesor exigent de limba română. Analizează FOARTE ATENT textul scris de mână din această imagine.
+    const prompt = `Ești un profesor exigent de limba română. Analizează FOARTE ATENT textul scris de mână din această imagine/document.
 
 Mai întâi, extrage textul complet din imagine (OCR).
 Apoi identifică TOATE greșelile din text:
@@ -106,7 +156,7 @@ Returnează DOAR JSON valid, fără alte explicații.`;
                     { text: prompt },
                     {
                         inlineData: {
-                            mimeType: 'image/jpeg',
+                            mimeType,
                             data: base64
                         }
                     }
@@ -132,25 +182,26 @@ Returnează DOAR JSON valid, fără alte explicații.`;
 };
 
 /**
- * Compară direct o imagine cu un barem folosind Gemini Vision
+ * Compară direct o imagine sau PDF cu un barem folosind Gemini Vision
  */
 export const compareImageWithBarem = async (file, barem) => {
-    const base64 = await imageToBase64(file);
+    const base64 = await fileToBase64(file);
+    const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
 
     const baremText = barem.map((item, i) =>
         `${i + 1}. ${item.answer} (${item.points} puncte)`
     ).join('\n');
 
-    const prompt = `Ești un profesor exigent. Analizează textul scris de mână din această imagine și compară răspunsurile elevului cu baremul de corectare.
+    const prompt = `Ești un profesor exigent. Analizează textul scris de mână din această imagine/document și compară răspunsurile elevului cu baremul de corectare.
 
 Baremul (răspunsuri corecte):
 ${baremText}
 
-Mai întâi, extrage textul din imagine. Apoi compară fiecare răspuns cu baremul.
+Mai întâi, extrage textul din imagine/document. Apoi compară fiecare răspuns cu baremul.
 
 Pentru fiecare item din barem, returnează un obiect JSON cu:
 - "itemNr": numărul itemului
-- "raspunsElev": ce a răspuns elevul (extras din imagine)
+- "raspunsElev": ce a răspuns elevul (extras din document)
 - "raspunsCorect": răspunsul corect din barem
 - "puncteObtinute": punctele obținute (poate fi parțial)
 - "puncteMaxime": punctele maxime posibile
@@ -158,7 +209,7 @@ Pentru fiecare item din barem, returnează un obiect JSON cu:
 - "feedback": o scurtă explicație
 
 Returnează un obiect JSON cu:
-- "textExtras": textul complet extras din imagine
+- "textExtras": textul complet extras
 - "items": array-ul de mai sus
 - "punctajTotal": suma punctelor obținute
 - "punctajMaxim": suma punctelor maxime
@@ -173,7 +224,7 @@ Returnează DOAR JSON valid, fără alte explicații.`;
                     { text: prompt },
                     {
                         inlineData: {
-                            mimeType: 'image/jpeg',
+                            mimeType,
                             data: base64
                         }
                     }
@@ -317,8 +368,17 @@ Returnează DOAR JSON valid, fără alte explicații.`;
     }
 };
 
-// Helper: comprimă și convertește imagine în base64
-async function imageToBase64(file, maxSize = 1600) {
+// Helper: comprimă și convertește imagine/PDF în base64
+async function fileToBase64(file, maxSize = 1600) {
+    if (file.type === 'application/pdf') {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result.split(',')[1]);
+            reader.onerror = reject;
+            reader.readAsDataURL(file);
+        });
+    }
+
     return new Promise((resolve, reject) => {
         const img = new Image();
         const url = URL.createObjectURL(file);

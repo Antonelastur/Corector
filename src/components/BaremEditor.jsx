@@ -1,9 +1,35 @@
 import { useState } from 'react';
+import ImageUploader from './ImageUploader';
+import { extractBaremFromFile } from '../services/geminiService';
 
 export default function BaremEditor({ onBaremReady, savedBarems = [] }) {
     const [items, setItems] = useState([{ answer: '', points: 10 }]);
     const [baremName, setBaremName] = useState('');
     const [showSaved, setShowSaved] = useState(false);
+    const [uploadMode, setUploadMode] = useState(false);
+    const [extracting, setExtracting] = useState(false);
+
+    const handleFileSelected = async (file) => {
+        setExtracting(true);
+        try {
+            const extractedItems = await extractBaremFromFile(file);
+            if (extractedItems && extractedItems.length > 0) {
+                // Înlocuim itemii (asigurăm punctajul de tip number)
+                setItems(extractedItems.map(item => ({
+                    answer: item.answer || '',
+                    points: parseFloat(item.points) || 0
+                })));
+                setUploadMode(false); // După extragere, revin la modul editare
+            } else {
+                alert('Nu s-au putut extrage itemii din document. Încercați manual.');
+            }
+        } catch (error) {
+            console.error('Eroare la extragerea baremului:', error);
+            alert('A apărut o eroare la extragere: ' + error.message);
+        } finally {
+            setExtracting(false);
+        }
+    };
 
     const addItem = () => {
         setItems([...items, { answer: '', points: 10 }]);
@@ -64,7 +90,7 @@ export default function BaremEditor({ onBaremReady, savedBarems = [] }) {
                     </div>
                 )}
 
-                <div className="input-group" style={{ marginBottom: 'var(--space-lg)' }}>
+                <div className="input-group" style={{ marginBottom: 'var(--space-md)' }}>
                     <label>Numele baremului (opțional)</label>
                     <input
                         type="text"
@@ -75,57 +101,86 @@ export default function BaremEditor({ onBaremReady, savedBarems = [] }) {
                     />
                 </div>
 
-                <div className="barem-items">
-                    {items.map((item, index) => (
-                        <div key={index} className="barem-item">
-                            <div className="barem-item-number">{index + 1}</div>
-                            <input
-                                type="text"
-                                className="input"
-                                placeholder="Răspunsul corect..."
-                                value={item.answer}
-                                onChange={(e) => updateItem(index, 'answer', e.target.value)}
-                            />
-                            <div className="flex items-center gap-xs">
-                                <input
-                                    type="number"
-                                    className="input"
-                                    style={{ width: '70px', textAlign: 'center' }}
-                                    value={item.points}
-                                    min="0"
-                                    onChange={(e) => updateItem(index, 'points', e.target.value)}
-                                />
-                                <button
-                                    className="btn btn-icon btn-ghost"
-                                    onClick={() => removeItem(index)}
-                                    disabled={items.length <= 1}
-                                    title="Șterge item"
-                                >
-                                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                                        <line x1="18" y1="6" x2="6" y2="18" />
-                                        <line x1="6" y1="6" x2="18" y2="18" />
-                                    </svg>
+                <div className="flex gap-md" style={{ marginBottom: 'var(--space-lg)' }}>
+                    <button
+                        className={`btn ${!uploadMode ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                        onClick={() => setUploadMode(false)}
+                    >
+                        ✏️ Scrie manual
+                    </button>
+                    <button
+                        className={`btn ${uploadMode ? 'btn-primary' : 'btn-secondary'} btn-sm`}
+                        onClick={() => setUploadMode(true)}
+                    >
+                        📤 Încarcă din fișier (AI)
+                    </button>
+                </div>
+
+                {uploadMode ? (
+                    <div style={{ padding: 'var(--space-md)', background: 'var(--gray-50)', borderRadius: 'var(--radius-md)' }}>
+                        <h4 style={{ marginBottom: 'var(--space-md)' }}>Extrage baremul din imagine sau PDF</h4>
+                        <ImageUploader onFileSelected={handleFileSelected} uploading={extracting} />
+                        {extracting && (
+                            <div className="loading-container" style={{ marginTop: 'var(--space-md)' }}>
+                                <p>Se extrage baremul cu Gemini AI...</p>
+                            </div>
+                        )}
+                    </div>
+                ) : (
+                    <>
+                        <div className="barem-items">
+                            {items.map((item, index) => (
+                                <div key={index} className="barem-item">
+                                    <div className="barem-item-number">{index + 1}</div>
+                                    <input
+                                        type="text"
+                                        className="input"
+                                        placeholder="Răspunsul corect..."
+                                        value={item.answer}
+                                        onChange={(e) => updateItem(index, 'answer', e.target.value)}
+                                    />
+                                    <div className="flex items-center gap-xs">
+                                        <input
+                                            type="number"
+                                            className="input"
+                                            style={{ width: '70px', textAlign: 'center' }}
+                                            value={item.points}
+                                            min="0"
+                                            onChange={(e) => updateItem(index, 'points', e.target.value)}
+                                        />
+                                        <button
+                                            className="btn btn-icon btn-ghost"
+                                            onClick={() => removeItem(index)}
+                                            disabled={items.length <= 1}
+                                            title="Șterge item"
+                                        >
+                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                                <line x1="18" y1="6" x2="6" y2="18" />
+                                                <line x1="6" y1="6" x2="18" y2="18" />
+                                            </svg>
+                                        </button>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+
+                        <div className="flex items-center justify-between" style={{ marginTop: 'var(--space-lg)' }}>
+                            <button className="btn btn-secondary" onClick={addItem}>
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                                    <line x1="12" y1="5" x2="12" y2="19" />
+                                    <line x1="5" y1="12" x2="19" y2="12" />
+                                </svg>
+                                Adaugă item
+                            </button>
+                            <div className="flex items-center gap-md">
+                                <span className="badge badge-primary">Total: {totalPoints} puncte</span>
+                                <button className="btn btn-primary" onClick={handleSubmit}>
+                                    Aplică baremul
                                 </button>
                             </div>
                         </div>
-                    ))}
-                </div>
-
-                <div className="flex items-center justify-between" style={{ marginTop: 'var(--space-lg)' }}>
-                    <button className="btn btn-secondary" onClick={addItem}>
-                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                            <line x1="12" y1="5" x2="12" y2="19" />
-                            <line x1="5" y1="12" x2="19" y2="12" />
-                        </svg>
-                        Adaugă item
-                    </button>
-                    <div className="flex items-center gap-md">
-                        <span className="badge badge-primary">Total: {totalPoints} puncte</span>
-                        <button className="btn btn-primary" onClick={handleSubmit}>
-                            Aplică baremul
-                        </button>
-                    </div>
-                </div>
+                    </>
+                )}
             </div>
         </div>
     );

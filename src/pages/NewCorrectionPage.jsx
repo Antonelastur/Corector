@@ -99,9 +99,9 @@ export default function NewCorrectionPage() {
             let result;
             let ocrText = '';
 
-            // Dacă avem imagine, analizăm direct cu Gemini Vision
-            if (file && file.type?.startsWith('image/')) {
-                setProcessingMessage('Se analizează imaginea cu Gemini Vision...');
+            // Dacă avem imagine sau PDF, analizăm direct cu Gemini Vision
+            if (file && (file.type?.startsWith('image/') || file.type === 'application/pdf')) {
+                setProcessingMessage('Se analizează documentul cu Gemini Vision...');
                 result = await compareImageWithBarem(file, baremData.items);
                 ocrText = result.textExtras || '';
                 setOcrData({ textOcr: ocrText });
@@ -158,9 +158,9 @@ export default function NewCorrectionPage() {
             let ocrText = '';
             let finalErrors = [];
 
-            // Dacă avem imagine, analizăm direct cu Gemini Vision
-            if (file && file.type?.startsWith('image/')) {
-                setProcessingMessage('Se analizează imaginea cu Gemini Vision...');
+            // Dacă avem imagine sau PDF, analizăm direct cu Gemini Vision
+            if (file && (file.type?.startsWith('image/') || file.type === 'application/pdf')) {
+                setProcessingMessage('Se analizează documentul cu Gemini Vision...');
                 const result = await analyzeImage(file);
                 ocrText = result.textExtras || '';
                 finalErrors = result.greseli || [];
@@ -374,7 +374,7 @@ export default function NewCorrectionPage() {
                                 fontSize: '0.85rem',
                                 color: 'var(--success-800, #2e7d32)'
                             }}>
-                                ✅ Imagine încărcată: <strong>{file.name}</strong> — Gemini Vision va analiza direct imaginea
+                                ✅ Document încărcat: <strong>{file.name}</strong> — Gemini Vision va analiza direct fișierul
                             </div>
                         </div>
                     ) : (
@@ -393,7 +393,7 @@ export default function NewCorrectionPage() {
                             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                                 <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2" />
                             </svg>
-                            {file ? 'Analizează imaginea' : 'Citește din Sheets și analizează'}
+                            {file ? 'Analizează documentul' : 'Citește din Sheets și analizează'}
                         </button>
                     )}
                 </div>
