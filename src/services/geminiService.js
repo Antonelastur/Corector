@@ -79,15 +79,24 @@ export const extractBaremFromFile = async (file) => {
     const base64 = await fileToBase64(file);
     const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
 
-    const prompt = `Ești un profesor care extrage baremul de corectare dintr-un document.
-Analizează acest document și extrage toți itemii din barem, împreună cu punctajul lor.
+    const prompt = `Ești un profesor cu experiență care extrage baremul dintr-un document (PDF/imagine).
+Analizează cu atenție acest document și extrage toți itemii/întrebările din barem, împreună cu punctajul lor.
+Dacă documentul conține doar un test/lucrare, extrage cerințele ca itemi și punctajele menționate.
+EXTRAGE ORICE seamănă cu o cerință sau un item evaluabil.
 
-Pentru fiecare item din barem returnează un obiect JSON cu:
-- "answer": răspunsul corect sau descrierea cerinței, formulat clar
-- "points": punctajul acordat (ca număr complet, ex: 10, 5, 2.5)
+Returnează STRICT un obiect JSON cu următoarea structură:
+{
+  "items": [
+    {
+      "answer": "Răspunsul corect sau descrierea cerinței (rezumat).",
+      "points": 10
+    }
+  ]
+}
 
-Returnează DOAR un array JSON valid cu toți itemii exacți din document, fără alte explicații.
-Dacă nu găsești itemi, returnează [].`;
+Atenție:
+- "points" trebuie să fie un număr. Dacă nu găsești un punctaj explicit, pune 10.
+- Nu returna alt text în afară de obiectul JSON. Nu folosi markdown code blocks.`;
 
     try {
         const data = await callGeminiAPI({
@@ -108,12 +117,34 @@ Dacă nu găsești itemi, returnează [].`;
             }
         });
 
-        const responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '[]';
-        const jsonMatch = responseText.match(/\[[\s\S]*\]/);
+        let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
+        // Elimină block-urile de cod markdown (ex: ```json ... ```)
+        responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
+
+        // Mai întâi căutăm un obiect JSON (datorită noului prompt)
+        const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
-            return JSON.parse(jsonMatch[0]);
+            try {
+                const parsed = JSON.parse(jsonMatch[0]);
+                if (parsed.items && Array.isArray(parsed.items)) {
+                    return parsed.items;
+                }
+            } catch (e) {
+                console.warn('Eroare parsare obiect JSON:', e);
+            }
         }
+
+        // Fallback în cazul în care a returnat doar un array (cum cerea vechiul prompt)
+        const arrayMatch = responseText.match(/\[[\s\S]*\]/);
+        if (arrayMatch) {
+            try {
+                return JSON.parse(arrayMatch[0]);
+            } catch (e) {
+                console.warn('Eroare parsare array JSON:', e);
+            }
+        }
+
         return [];
     } catch (error) {
         console.error('Eroare extragere barem:', error);
