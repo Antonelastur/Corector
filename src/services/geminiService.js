@@ -2,7 +2,7 @@
 // NU se mai folosește import.meta.env pentru a evita expunerea cheii pe GitHub
 export const getGeminiApiKey = () => localStorage.getItem('gemini_api_key') || '';
 export const setGeminiApiKey = (key) => localStorage.setItem('gemini_api_key', key);
-export const getGeminiModel = () => localStorage.getItem('gemini_model') || 'gemini-1.5-flash';
+export const getGeminiModel = () => localStorage.getItem('gemini_model') || 'gemini-2.0-flash';
 export const setGeminiModel = (model) => localStorage.setItem('gemini_model', model);
 export const isGeminiConfigured = () => !!getGeminiApiKey();
 

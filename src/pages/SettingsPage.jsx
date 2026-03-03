@@ -52,7 +52,7 @@ export default function SettingsPage() {
             }
 
             // Alegem cel mai bun model disponibil
-            let selectedModel = 'gemini-1.5-flash';
+            let selectedModel = 'gemini-2.0-flash';
             if (availableModels.includes('gemini-2.5-flash')) selectedModel = 'gemini-2.5-flash';
             else if (availableModels.includes('gemini-2.0-flash')) selectedModel = 'gemini-2.0-flash';
             else if (availableModels.includes('gemini-1.5-flash')) selectedModel = 'gemini-1.5-flash';
