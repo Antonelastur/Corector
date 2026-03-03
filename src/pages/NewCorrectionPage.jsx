@@ -16,6 +16,7 @@ export default function NewCorrectionPage() {
     const { user } = useAuth();
     const [step, setStep] = useState(1);
     const [file, setFile] = useState(null);
+    const [testFile, setTestFile] = useState(null);
     const [uploading, setUploading] = useState(false);
     const [mode, setMode] = useState(null);
     const [processing, setProcessing] = useState(false);
@@ -47,6 +48,10 @@ export default function NewCorrectionPage() {
     // Step 1: Upload
     const handleFileSelected = (selectedFile) => {
         setFile(selectedFile);
+    };
+
+    const handleTestFileSelected = (selectedFile) => {
+        setTestFile(selectedFile);
     };
 
     const handleUpload = async () => {
@@ -102,7 +107,7 @@ export default function NewCorrectionPage() {
             // Dacă avem imagine sau PDF, analizăm direct cu Gemini Vision
             if (file && (file.type?.startsWith('image/') || file.type === 'application/pdf')) {
                 setProcessingMessage('Se analizează documentul cu Gemini Vision...');
-                result = await compareImageWithBarem(file, baremData.items);
+                result = await compareImageWithBarem(file, baremData.items, testFile);
                 ocrText = result.textExtras || '';
                 setOcrData({ textOcr: ocrText });
             } else {
@@ -123,7 +128,7 @@ export default function NewCorrectionPage() {
                 }
 
                 setProcessingMessage('Se compară cu baremul folosind Gemini AI...');
-                result = await compareWithBarem(ocrText, baremData.items);
+                result = await compareWithBarem(ocrText, baremData.items, testFile);
             }
 
             setBaremResult(result);
@@ -305,9 +310,20 @@ export default function NewCorrectionPage() {
                         </div>
                     </div>
 
-                    <ImageUploader onFileSelected={handleFileSelected} uploading={uploading} />
+                    <div style={{ marginBottom: 'var(--space-xl)' }}>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>Lucrarea elevului (Obligatoriu)</h3>
+                        <ImageUploader onFileSelected={handleFileSelected} uploading={uploading} />
+                    </div>
 
-                    <div className="flex gap-md" style={{ marginTop: 'var(--space-lg)', justifyContent: 'flex-end' }}>
+                    <div>
+                        <h3 style={{ fontSize: '1.1rem', marginBottom: 'var(--space-sm)' }}>Subiectul testului (Opțional)</h3>
+                        <p className="text-muted" style={{ fontSize: '0.85rem', marginBottom: 'var(--space-md)' }}>
+                            Ajută AI-ul să corecteze mult mai precis dacă încarci și cerințele inițiale ale testului.
+                        </p>
+                        <ImageUploader onFileSelected={handleTestFileSelected} uploading={false} />
+                    </div>
+
+                    <div className="flex gap-md" style={{ marginTop: 'var(--space-xl)', justifyContent: 'flex-end', borderTop: '1px solid var(--gray-200)', paddingTop: 'var(--space-lg)' }}>
                         <button className="btn btn-ghost" onClick={handleSkipUpload}>
                             Sari peste upload
                         </button>
@@ -419,7 +435,7 @@ export default function NewCorrectionPage() {
                                 })),
                                 ocrText: ocrData?.textOcr || ''
                             }} />
-                            <button className="btn btn-primary" onClick={() => { setStep(1); setFile(null); setMode(null); setErrors([]); setBaremResult(null); setOcrData(null); }}>
+                            <button className="btn btn-primary" onClick={() => { setStep(1); setFile(null); setTestFile(null); setMode(null); setErrors([]); setBaremResult(null); setOcrData(null); }}>
                                 Corectare nouă
                             </button>
                         </div>
