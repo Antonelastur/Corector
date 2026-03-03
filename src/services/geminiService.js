@@ -79,21 +79,23 @@ export const extractBaremFromFile = async (file) => {
     const base64 = await fileToBase64(file);
     const mimeType = file.type === 'application/pdf' ? 'application/pdf' : 'image/jpeg';
 
-    const prompt = `Ești un profesor cu experiență care extrage baremul dintr-un document (PDF/imagine).
-SARCINA TA PRINCIPALĂ: Extrage TOȚI itemii/toate cerințele și ASIGURĂ-TE CĂ EXTRAGI CORECT PUNCTAJUL pentru fiecare.
+    const prompt = `Ești un evaluator extrem de strict care extrage un barem dintr-un document scanat/PDF.
+SARCINA TA ESTE CRITICĂ: Extrage fiecare item și ASOCIAZĂ-I PUNCTAJUL EXACT așa cum apare scris pe foaie.
 
-Instrucțiuni vitale pentru PUNCTAJ:
-1. Caută cu mare atenție numere urmate de „p”, „pct”, „puncte” sau aflate în paranteze la finalul/începutul rândului (ex: "5p", "(20 puncte)").
-2. Dacă vezi un tabel sau o margine în care sunt trecute numere, acelea sunt punctajele.
-3. Dacă un exercițiu mare are subpuncte (a, b, c), extrage punctajul exact pentru fiecare subpunct, nu doar totalul per exercițiu.
-4. Folosește PUNCTAJ DIN OFICIU (tipic 10) DOAR DACĂ ești 100% sigur că nu a fost scris absolut niciun punctaj pe toată pagina.
+REGULI STRICTE PENTRU PUNCTAJE (Nerespectarea lor este o eroare gravă):
+1. NU INVENTA PUNCTAJE! NU pune "10" sau alt număr din burtă.
+2. Caută în text numere urmate de "p", "pct", "puncte" (ex: "5p", "(20 puncte)", "1.5p"). Acestea sunt punctajele.
+3. Dacă pe foaie scrie un punctaj total pentru un exercițiu (ex: Exercițiul 1 - 20 puncte) și are 4 subpuncte (a, b, c, d), împarte logic punctajul (ex: 5 puncte/subpunct) SAU extrage punctajul specific dacă e trecut (ex: a-5p, b-10p).
+4. Doar dacă nu scrie absolut niciun număr legat de punctaj pe toată pagina, poți lăsa punctajul gol sau 0.
 
-Structura de date așteptată (obiect JSON):
+Returnează un obiect JSON valid cu structura de mai jos. 
+ATENȚIE: În exemplul de mai jos, am pus un text la "points" doar ca să vezi structura. TU TREBUIE SĂ RETURNEZI UN NUMĂR REAL EXTRAS DIN DOCUMENT!
+
 {
   "items": [
     {
-      "answer": "Răspunsul corect sau descrierea cerinței din document.",
-      "points": 4.5
+      "answer": "Răspunsul sau cerința exactă extrasă.",
+      "points": PUNCTAJUL_CA_NUMAR
     }
   ]
 }`;
@@ -131,9 +133,14 @@ Structura de date așteptată (obiect JSON):
         const jsonMatch = responseText.match(/\{[\s\S]*\}/);
         if (jsonMatch) {
             try {
-                const parsed = JSON.parse(jsonMatch[0]);
+                // Înlocuim posibilele stringuri lăsate accidental la points de către AI
+                let cleanedJsonStr = jsonMatch[0].replace(/"PUNCTAJUL_CA_NUMAR"/g, '0');
+                // Se asigură că orice referință ciudată fără ghilimele este tot 0
+                cleanedJsonStr = cleanedJsonStr.replace(/(:\s*)PUNCTAJUL_CA_NUMAR/g, '$10');
+
+                const parsed = JSON.parse(cleanedJsonStr);
                 if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
-                    return parsed.items;
+                    return parsed.items.map(i => ({ ...i, points: Number(i.points) || 0 }));
                 }
             } catch (e) {
                 console.warn('Eroare parsare obiect JSON:', e);
