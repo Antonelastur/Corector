@@ -86,14 +86,14 @@ Instrucțiuni vitale pentru PUNCTAJ:
 1. Caută cu mare atenție numere urmate de „p”, „pct”, „puncte” sau aflate în paranteze la finalul/începutul rândului (ex: "5p", "(20 puncte)").
 2. Dacă vezi un tabel sau o margine în care sunt trecute numere, acelea sunt punctajele.
 3. Dacă un exercițiu mare are subpuncte (a, b, c), extrage punctajul exact pentru fiecare subpunct, nu doar totalul per exercițiu.
-4. Folosește "10" (sau alt default) DOAR DACĂ ești 100% sigur că nu a fost scris niciun punctaj pe toată pagina pentru acel exercițiu.
+4. Folosește PUNCTAJ DIN OFICIU (tipic 10) DOAR DACĂ ești 100% sigur că nu a fost scris absolut niciun punctaj pe toată pagina.
 
 Structura de date așteptată (obiect JSON):
 {
   "items": [
     {
-      "answer": "Răspunsul corect sau descrierea cerinței (rezumat).",
-      "points": 5
+      "answer": "Răspunsul corect sau descrierea cerinței din document.",
+      "points": 4.5
     }
   ]
 }`;
