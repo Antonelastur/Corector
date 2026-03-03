@@ -82,9 +82,10 @@ export const extractBaremFromFile = async (file) => {
     const prompt = `Ești un profesor cu experiență care extrage baremul dintr-un document (PDF/imagine).
 Analizează cu atenție acest document și extrage toți itemii/întrebările din barem, împreună cu punctajul lor.
 Dacă documentul conține doar un test/lucrare, extrage cerințele ca itemi și punctajele menționate.
-EXTRAGE ORICE seamănă cu o cerință sau un item evaluabil.
+Dacă nu găsești punctaje, alocă din oficiu (ex: 10 puncte/item).
+EXTRAGE ORICE seamănă cu o cerință sau un item evaluabil. În caz că documentul e ilizibil, returnează o listă goală.
 
-Returnează STRICT un obiect JSON cu următoarea structură:
+Structura de date așteptată (obiect JSON):
 {
   "items": [
     {
@@ -92,13 +93,11 @@ Returnează STRICT un obiect JSON cu următoarea structură:
       "points": 10
     }
   ]
-}
-
-Atenție:
-- "points" trebuie să fie un număr. Dacă nu găsești un punctaj explicit, pune 10.
-- Nu returna alt text în afară de obiectul JSON. Nu folosi markdown code blocks.`;
+}`;
 
     try {
+        console.log(`Trimitem document la Gemini. Tip: ${mimeType}, Base64 length: ${base64.length}`);
+
         const data = await callGeminiAPI({
             contents: [{
                 parts: [
@@ -113,11 +112,14 @@ Atenție:
             }],
             generationConfig: {
                 temperature: 0.1,
-                maxOutputTokens: 2048
+                maxOutputTokens: 2048,
+                responseMimeType: "application/json"
             }
         });
 
         let responseText = data.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+
+        console.log('Răspuns brut Gemini (Barem Extraction):', responseText);
 
         // Elimină block-urile de cod markdown (ex: ```json ... ```)
         responseText = responseText.replace(/```json/gi, '').replace(/```/g, '').trim();
@@ -127,7 +129,7 @@ Atenție:
         if (jsonMatch) {
             try {
                 const parsed = JSON.parse(jsonMatch[0]);
-                if (parsed.items && Array.isArray(parsed.items)) {
+                if (parsed.items && Array.isArray(parsed.items) && parsed.items.length > 0) {
                     return parsed.items;
                 }
             } catch (e) {
@@ -139,7 +141,8 @@ Atenție:
         const arrayMatch = responseText.match(/\[[\s\S]*\]/);
         if (arrayMatch) {
             try {
-                return JSON.parse(arrayMatch[0]);
+                const parsed = JSON.parse(arrayMatch[0]);
+                if (Array.isArray(parsed) && parsed.length > 0) return parsed;
             } catch (e) {
                 console.warn('Eroare parsare array JSON:', e);
             }
